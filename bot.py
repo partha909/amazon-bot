@@ -6,9 +6,11 @@ import requests
 api_id = 35703686
 api_hash = "c9cfc4dc32c1302b7f287b818b69e0f8"
 
-# SOURCE CHANNEL
+# SOURCE CHANNELS
 source_channels = [
--1001805243449,-1002165035485,-1001462060305,
+-1001805243449,
+-1002165035485,
+-1001462060305,
 ]
 
 # TARGET CHANNEL
@@ -22,8 +24,7 @@ posted=set()
 
 link_pattern=r"(https?://\S+)"
 
-
-# expand amzn.to
+# expand amzn.to short links
 def expand_url(url):
 
     try:
@@ -33,15 +34,34 @@ def expand_url(url):
         return url
 
 
-# replace affiliate
+# clean amazon product link
+def clean_amazon_link(link):
+
+    link=link.split("&tag=")[0]
+
+    if "/dp/" in link:
+        asin=link.split("/dp/")[1][:10]
+        return f"https://www.amazon.in/dp/{asin}"
+
+    if "/gp/product/" in link:
+        asin=link.split("/gp/product/")[1][:10]
+        return f"https://www.amazon.in/dp/{asin}"
+
+    return link
+
+
+# add affiliate tag (works for search + product)
 def add_affiliate(link):
 
+    # remove existing tag
     link=re.sub(r'([&?])tag=[^&]+','',link)
 
+    link=link.strip()
+
     if "?" in link:
-        link+="&tag="+affiliate_tag
+        link=link+"&tag="+affiliate_tag
     else:
-        link+="?tag="+affiliate_tag
+        link=link+"?tag="+affiliate_tag
 
     return link
 
@@ -61,13 +81,18 @@ async def handler(event):
         if "amazon" not in link and "amzn.to" not in link:
             continue
 
+        # expand short links
         if "amzn.to" in link:
             link=expand_url(link)
 
+        # clean dp product link
+        link=clean_amazon_link(link)
+
+        # add affiliate
         link=add_affiliate(link)
 
         if link in posted:
-            return
+            continue
 
         posted.add(link)
 
@@ -87,7 +112,7 @@ async def handler(event):
         print("Posted:",link)
 
 
-print("Amazon link repost bot running...")
+print("Amazon affiliate repost bot running...")
 
 client.start()
 client.run_until_disconnected()
